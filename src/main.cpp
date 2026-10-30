@@ -24,6 +24,9 @@ const int LED_PINS[4] = {16, 17, 18, 19};
 const int NUM_LEDS = 4;      // the number of elements in LED_PINS
 const int STEP_TIME = 200;   // how long each LED stays on (ms)
 
+// An array of 10 readings. It is empty for now: takeSamples() fills it.
+const int NUM_SAMPLES = 10;
+int samples[NUM_SAMPLES];
 
 
 // Part IV – samples array
@@ -51,12 +54,96 @@ void showLevel(int level)
 
 // Part IV – takeSamples(), printSamples(), getAverage(),
 //           getMinimum(), getMaximum()
+// takeSamples() – fill the array: element 0, then element 1, … up to element 9.
+void takeSamples()
+{
+  for (int i = 0; i < NUM_SAMPLES; i++)
+  {
+    // Store one reading in element i (Common Commands: "Read an Analog Pin").
+    samples[i] = analogRead(POT_PIN);
+    delay(50);
+  }
+}
+
+// printSamples() – print every element of the array, one per line.
+void printSamples()
+{
+  for (int i = 0; i < NUM_SAMPLES; i++)
+  {
+    Serial.print("samples[");
+    Serial.print(i);
+    Serial.print("] = ");
+    Serial.println(samples[i]);
+  }
+}
+
+// getAverage() – add up every element, then divide by the number of elements.
+float getAverage()
+{
+  long sum = 0;                        // the total starts at 0
+  for (int i = 0; i < NUM_SAMPLES; i++)
+  {
+    sum = sum + samples[i];          // add element i to the total
+  }
+  return (float)sum/NUM_SAMPLES;    // (float) keeps the decimals
+}
+
+// getMinimum() – start with element 0, then look for anything smaller.
+int getMinimum()
+{
+  int smallest = samples[0];
+  for (int i = 1; i < NUM_SAMPLES; i++)
+  {
+    if (samples[i] < smallest)       // < or > ?
+    {
+      smallest = samples[i];
+    }
+  }
+  return smallest;
+}
+
+// getMaximum() – the largest element in the array.
+int getMaximum()
+{
+  // 1. Create an int variable called largest and give it the value of samples[0].
+  int largest = samples[0];
+  // 2. Write a for loop that starts at i = 1 and visits every other element.
+  for(int i = 1; i < NUM_SAMPLES; i++ )
+  {
+    // 3. Inside the loop: if samples[i] is greater than largest,
+    if(samples[i] > largest){
+      //   copy samples[i] into largest.
+      largest = samples[i];
+    }
+  }
+  return largest;
+}
 
 
 // Part V – sendReport()
 
 
 // Part IV – runMeasurement()
+// runMeasurement() – take the readings, calculate, show the bar graph and print.
+void runMeasurement()
+{
+  takeSamples();
+
+  float average = getAverage();
+  int minimum = getMinimum();
+  int maximum = getMaximum();
+
+  // Turn the average (0 to 4095) into a level from 0 to 4 LEDs
+  // (Common Commands: "Change the Range").
+  int level = map((int)average, 0, 4096, 0, NUM_LEDS + 1);
+  showLevel(level);                 // show the level on the bar graph
+
+  printSamples();
+  Serial.print("Average: ");   Serial.println(average);
+  Serial.print("Minimum: ");   Serial.println(minimum);
+  Serial.print("Maximum: ");   Serial.println(maximum);
+  Serial.print("Level: ");     Serial.println(level);
+}
 
 
 // Part V – handleCommand() and checkSerial()
@@ -87,10 +174,10 @@ void loop()
   // Part III – LED patterns (for loops)
 
   // Show the levels 0, 1, 2, 3 and 4, half a second each.
-  for (int level = 0; level <= NUM_LEDS; level++)
-  {
-    showLevel(level);
-  }
+  // for (int level = 0; level <= NUM_LEDS; level++)
+  // {
+  //   showLevel(level);
+  // }
 
   // Part IV – Wait for the button, then measure (while loops)
   Serial.println("Press the button to measure...");
@@ -104,7 +191,7 @@ void loop()
   }
   delay(50);     // ignore switch bounce (like the debounce in Lab 10)
 
-  Serial.println("Button pressed!");
+  runMeasurement();
 
   // Now wait here until the button is released, so one press = one measurement.
   while (digitalRead(BUTTON_PIN) == LOW)
